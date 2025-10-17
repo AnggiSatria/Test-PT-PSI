@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { requestBodyCheckout } from './types/checkout.interfaces';
+import {
+  reqParamsTransaction,
+  requestBodyCheckout,
+  requestBodyVoucher,
+} from './types/checkout.interfaces';
 
 @Injectable()
 export class EcommerceService {
@@ -41,5 +45,34 @@ export class EcommerceService {
     });
 
     return { message: 'Checkout success', transaction };
+  }
+
+  async createVoucher(body: requestBodyVoucher) {
+    const isVouceherExist = await this.prisma.voucher.findUnique({
+      where: { code: body.code },
+    });
+
+    if (isVouceherExist) {
+      throw new Error('Voucher code already exists');
+    }
+
+    const voucher = await this.prisma.voucher.create({ data: body });
+    return { message: 'Voucher created', voucher };
+  }
+
+  async getAllTransactions(query: reqParamsTransaction) {
+    const where: any = {};
+
+    if (query.userId) where.userId = query.userId;
+    if (query.discountValue !== undefined)
+      where.discountValue = query.discountValue;
+    if (query.finalPrice !== undefined) where.finalPrice = query.finalPrice;
+    if (query.pointsEarned !== undefined)
+      where.pointsEarned = query.pointsEarned;
+    if (query.totalPrice !== undefined) where.totalPrice = query.totalPrice;
+
+    const transactions = await this.prisma.transaction.findMany({ where });
+
+    return { message: 'Success', data: transactions };
   }
 }
