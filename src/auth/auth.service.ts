@@ -6,10 +6,42 @@ import type {
 } from './types/register.types';
 import * as bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { randomBytes } from 'crypto';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class AuthService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private jwtService: JwtService,
+  ) {}
+
+  async findOrCreateUserFromGoogle(profile: any) {
+    const email = profile.emails?.[0]?.value;
+    const name = profile.displayName || profile.name?.givenName || 'Unnamed';
+
+    let user = null;
+    if (email) {
+      user = await this.prisma.user.findUnique({ where: { email } });
+    }
+
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: {
+          name,
+          email,
+          password: randomBytes(16).toString('hex'),
+        },
+      });
+    }
+
+    return user;
+  }
+
+  async getJwtForUser(user: any) {
+    const payload = { sub: user.id, username: user.username };
+    return this.jwtService.sign(payload);
+  }
 
   async register(body: requestBodyRegister) {
     const existingUser = await this.prisma.user.findUnique({
